@@ -9,6 +9,9 @@ import codecs
 import csv
 import json
 import sys
+import numpy as np
+import pickle
+
 
 # Additional modules
 
@@ -21,10 +24,14 @@ def load_csv(filename):
     
     :rtype: [header, lines] where lines is an interator
     """
-    with codecs.open(filename, 'r', encoding='utf-8') as fin:
-        csvreader = csv.reader(fin)
-        header = next(csvreader)
-    return header, csvreader
+    # with codecs.open(filename, 'r', encoding='utf-8') as fin:
+    #     csvreader = csv.reader(fin)
+    #     header = next(csvreader)
+    # return header, csvreader
+    content = np.genfromtxt(filename, dtype=None, delimiter=',', names=True)
+    header = content.dtype.names
+    print("loading..."+filename+" finshed")
+    return header ,content
 
 
 def load_events_train():
@@ -46,7 +53,7 @@ def load_events_train():
   
     :rtype: [header, lines] where lines is an interator
     """
-    return load_csv('./data/events_train.csv')
+    return load_csv('./assets/events_train.csv')
 
 
 def load_events_test():
@@ -59,15 +66,14 @@ def load_events_test():
 
     :rtype: [header, lines] where lines is an interator
     """
-    return load_csv('./data/events_test.csv')
-
+    return load_csv('./assets/events_test.csv')
 
 def load_labels_train():
     """Load labels_train.csv.
 
     :rtype: [header, lines] where lines is an interator
     """
-    return load_csv('./data/labels_train.csv')
+    return load_csv('./assets/labels_train.csv')
 
 
 def load_labels_test():
@@ -75,7 +81,7 @@ def load_labels_test():
 
     :rtype: [header, lines] where lines is an interator
     """
-    return load_csv('./data/sample.csv')
+    return load_csv('./assets/sample.csv')
 
 
 def load_titles():
@@ -83,12 +89,12 @@ def load_titles():
     
     :rtype: a dictionary of titles with title_id as keys
     """
-    with codecs.open('/data/titles.json', 'r', encoding='utf-8') as fin:
+    with codecs.open('/assets/titles.json', 'r', encoding='utf-8') as fin:
         titles = json.loads(fin.read())
     return titles
 
 
-def save_result(filename, rows, headers=('user_id', 'title_id')):
+def save_result(filename, rows):
     """Save the testing's result, labels, into a file.
     
     :param: as iterator with each item as (user_id, title_id)
@@ -96,12 +102,22 @@ def save_result(filename, rows, headers=('user_id', 'title_id')):
     NOTE: both user_id and title_id in rows should be a string 
     with necessary padding zeros.
     """
-    with codecs.open(filename, 'w', encoding='utf-8') as fout:
-        fout.write(','.join(headers)+'\n')
-        fout.writelines(','.join(r)+'n' for r in rows)
+    # with codecs.open(filename, 'w', encoding='utf-8') as fout:
+    #     fout.write(','.join(headers)+'\n')
+    #     fout.writelines(','.join(r)+'n' for r in rows)
+    with open(filename, 'w') as csvfile:
+        field = ['user_id', 'title_id']
+        writer = csv.DictWriter(csvfile, fieldnames = field)
+
+        writer.writeheader()
+        for i in xrange(rows.shape[0]):
+            writer.writerow({
+                    "user_id":str(rows[i][0]).zfill(8), 
+                    "title_id":str(rows[i][1]).zfill(8)
+                    })
 
 
-def main(sys=sys.argv[:]):
+def main():
     # NOTE: happy data game!
 
     # TODO(instructions):
@@ -120,21 +136,25 @@ def main(sys=sys.argv[:]):
     # NOTE: load all data. some csv are large files, skip them if you don't need
     # them.
 
-    # events_train_header, events_train_rows = load_events_train
+    #events_train_header, events_train_rows = load_events_train()
 
-    # events_test_header, events_test_rows = load_events_test
+    #events_test_header, events_test_rows = load_events_test()
 
-    # labels_train_header, labels_train_rows = load_labels_train
+    #labels_train_header, labels_train_rows = load_labels_train()
 
-    # labels_test_header, labels_test_rows = load_labels_test
+    labels_test_header, labels_test_rows = load_labels_test()
 
-    # titles = load_titles
+    titles = load_titles
 
     # how about all users watched '00000001'?
     # build and submit the results!
-    # labels_test_rows.map! { |row| [row[0], '00000001'] }
 
-    # save_result(labels_test_header, labels_test_rows, './data/results_0.csv')
+    for i in xrange(labels_test_rows.shape[0]):
+        labels_test_rows[i][1] = '669'
+
+    print str(labels_test_rows[10][1]).zfill(8)
+
+    save_result('./data/results_0.csv', labels_test_rows)
 
     # if each user watched a "random" title?
     # build and submit the results!
