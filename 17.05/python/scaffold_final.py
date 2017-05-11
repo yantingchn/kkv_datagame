@@ -138,8 +138,6 @@ test_num = 41539
 alpha = 1
 beta = 1
 
-gate1 = 121500
-gate2 = 120000
 def main():
 
     events_train_header, events_train_rows = load_events_train()
@@ -184,80 +182,155 @@ def main():
     print "loading train file"
 
 
-    X = np.zeros(shape=(train_num,video_num))
+    X_train = np.zeros(shape=(train_num,video_num))
     prev_id = -1
+
 
     time = 0
     max_time = 0
     last = -1
     el_list = [110, 391, 669]
+    interest = [669, 664, 391, 110, 482, 389, 251, 87, 628, 587, 483, 372, 265]
     no_his = []
+    less_epi = []
     users = {}
+    watch_time_less = []
 
+    episode_count = 0
+    episode_num = {}
+
+    for v in video_info:
+        for n in video_info[v]["total_episode_counts"]:
+            episode_count += int(video_info[v]["total_episode_counts"][n])
+        if int(v) in interest:
+            print v, episode_count
+        episode_num[int(v)] = episode_count
+        episode_count = 0
+
+    print len(episode_num)
+
+
+    temp_list = {}
     for i in xrange(events_train_rows.shape[0]):
         if events_train_rows[i][1] != prev_id:
             users[prev_id] = last
-            if max_time < gate1 and last not in el_list:
+            if max_time < 121500 and last not in el_list:
                 no_his.append(prev_id-41539)
+            elif episode_num[int(last)] < 11:
+                less_epi.append(prev_id-41539)
+            # elif temp_list[last] < 500:
+            #     watch_time_less.append(prev_id-41539)
             prev_id = events_train_rows[i][1]
             max_time = 0
+            temp_list = {}
         time = int(events_train_rows[i][0][5:7] + events_train_rows[i][0][8:10]+ events_train_rows[i][0][11:13])
         if time > max_time:
             max_time = time
             last = events_train_rows[i][2]
+        elif time == max_time:
+            if temp_list[last] < events_train_rows[i][5]:
+                last = events_train_rows[i][2]
         if events_train_rows[i][3]:
-            X[events_train_rows[i][1]-41539, events_train_rows[i][2] - 1] += 1*alpha
+            X_train[events_train_rows[i][1]-41539, events_train_rows[i][2] - 1] += 1*alpha
         else:
-            X[events_train_rows[i][1]-41539, events_train_rows[i][2] - 1] += 1
+            X_train[events_train_rows[i][1]-41539, events_train_rows[i][2] - 1] += 1
+        if (events_train_rows[i][2]) not in temp_list:
+            temp_list[events_train_rows[i][2]] = events_train_rows[i][5]
+        else:
+            temp_list[events_train_rows[i][2]] = events_train_rows[i][5]
 
     users[prev_id] = last
     no_his = np.sort(no_his)
+    less_epi = np.sort(less_epi)
+    # watch_time_less = np.sort(watch_time_less)
 
     correct = np.zeros(730)
     total_count = np.zeros(730)
-    dount = 0
     count = 0
 
-    Y = np.zeros(train_num)
+    Y_train = np.zeros(train_num)
 
     for i in xrange(labels_train_rows.shape[0]):
         total_count[labels_train_rows[i][1]] += 1
 
-        if labels_train_rows[i][0] in no_his:
-            if users[labels_train_rows[i][0]] == labels_train_rows[i][1]:
-                count += 1
-                correct[labels_train_rows[i][1]] += 1
-        Y[i] = labels_train_rows[i][1]
-
+        # if labels_train_rows[i][0] in watch_time_less:
+        #     if users[labels_train_rows[i][0]] == labels_train_rows[i][1]:
+        #         count += 1
+        #         correct[labels_train_rows[i][1]] += 1
+        Y_train[i] = labels_train_rows[i][1]
 
 
 
     print "no_his_len", len(no_his)
+    print "less_len", len(less_epi)
+    # print "watch_time_less", len(watch_time_less)
     print "count:", count
-    for i in xrange(730):
-        if correct[i] > 10:
-            print i, correct[i]
-    print "total count", train_num - len(no_his)
+    # for i in xrange(730):
+    #     if correct[i] > 10:
+    #         print i, correct[i]
+    # print "total count", train_num - len(less_epi)
 
+    # print '####################'
+    # print '360', total_count[360]
+    # print '409', total_count[409]
+    # print '670', total_count[670]
+        
+    # print '####################'
+    # print '265', correct[265]
+    # print '372', correct[372]
+    # print '483', correct[483]
+    # print '587', correct[587]
+    # print '628', correct[628]
+    X = X_train[no_his]
+    Y = Y_train[no_his]
 
-    X = X[no_his]
-    Y = Y[no_his]
+    X_e = X_train[less_epi]
+    Y_e = Y_train[less_epi]
+
+    # X_w = X_train[watch_time_less]
+    # Y_w = Y_train[watch_time_less]
 
     print X.shape, Y.shape
+    print X_e.shape, Y_e.shape
+    # print X_w.shape, Y_w.shape
     print "start training"
     X = np.asarray(X)
     Y = np.asarray(Y)
+
+    X_e = np.asarray(X_e)
+    Y_e = np.asarray(Y_e)
+
+    # X_w = np.asarray(X_w)
+    # Y_w = np.asarray(Y_w)
+
     clf = RandomForestClassifier(
                             n_estimators=200
                             ,max_depth=40
                             ,min_samples_split=2
                             ,random_state=None
                             )
+    clf_e = RandomForestClassifier(
+                            n_estimators=200
+                            ,max_depth=25
+                            ,min_samples_split=2
+                            ,random_state=None
+                            )
+
+    # clf_w = RandomForestClassifier(
+    #                         n_estimators=100
+    #                         ,max_depth=30
+    #                         ,min_samples_split=2
+    #                         ,random_state=None
+    #                         )
 
     clf = clf.fit(X.astype('float32'), Y.astype('float32').ravel())
+    clf_e = clf_e.fit(X_e.astype('float32'), Y_e.astype('float32').ravel())
+    # clf_w = clf_w.fit(X_w.astype('float32'), Y_w.astype('float32').ravel())
+
     print 'EVA'
     print "clf_accuracy:", clf.score(X, Y.ravel())
-
+    print "clf_e_acc:", clf_e.score(X_e, Y_e.ravel())
+    # print "clf_w_acc", clf_w.score(X_w, Y_w.ravel())
 
     print "loading test csv"
 
@@ -269,39 +342,66 @@ def main():
     last = -1
     users = {}
     no_his_test = []
+    less_epi_test = []
+    watch_time_less = []
 
+    temp_list = {}
     for i in xrange(events_test_rows.shape[0]):
         if events_test_rows[i][1] != prev_id:
             users[prev_id] = last
-            if max_time < gate2 and last not in el_list:
+            if max_time < 120000 and last not in el_list:
                 no_his_test.append(prev_id)
+            elif episode_num[int(last)] < 11:
+                less_epi_test.append(prev_id)
+            # elif temp_list[last] < 500 and max_time > 121500:
+            #     watch_time_less.append(prev_id)
             prev_id = events_test_rows[i][1]
             max_time = 0
+            temp_list = {}
         time = int(events_test_rows[i][0][5:7] + events_test_rows[i][0][8:10] + events_test_rows[i][0][11:13])
         if time > max_time:
             last = events_test_rows[i][2]
             max_time = time
+        elif time == max_time:
+            if temp_list[last] < events_test_rows[i][5]:
+                last = events_test_rows[i][2]
         if events_test_rows[i][3]:
             test[events_test_rows[i][1], events_test_rows[i][2] - 1] += 1*alpha
         else:
             test[events_test_rows[i][1], events_test_rows[i][2] - 1] += 1
+        if (events_test_rows[i][2]) not in temp_list:
+            temp_list[events_test_rows[i][2]] = events_test_rows[i][5]
+        else:
+            temp_list[events_test_rows[i][2]] = events_test_rows[i][5]
 
     users[prev_id] = last
     no_his_test = np.sort(no_his_test)
+    less_epi_test = np.sort(less_epi_test)
+    # watch_time_less = np.sort(watch_time_less)
 
     print "no_his_len", len(no_his_test)
+    print "less_epi_test", len(less_epi_test)
+    # print "watch_time", len(watch_time_less)
     
     results = clf.predict(test)
+    results_e = clf_e.predict(test[less_epi_test])
+    # results_w = clf_w.predict(test[watch_time_less])
 
     test_dis = np.zeros(video_num)
-    predict_dis = np.zeros(video_num)
-    counter = 0
     print test.shape
     print len(results)
 
+    counter = 0 
+    ppp = 0
     for j in xrange(len(results)):
         if j not in no_his_test:
             results[j] = users[j]
+        if j in less_epi_test:
+            results[j] = results_e[counter]
+            counter += 1
+        # if j in watch_time_less:
+        #     results[j] = results_w[ppp]
+        #     ppp += 1
         test_dis[int(results[j])] += 1
 
     
@@ -309,11 +409,7 @@ def main():
         if test_dis[i] > 800:
             print i, test_dis[i]
 
-    for i in xrange(len(predict_dis)):
-        if predict_dis[i] > 200:
-            print "predict",i, predict_dis[i] 
-
-    save_result('./results/results_with_200_40_1215.csv', results)
+    save_result('./results/results_test_with_no_his_less_time_hope_1215_time.csv', results)
 
 
     # save_result(labels_test_header, labels_test_rows, './data/results_1.csv')
